@@ -9,6 +9,7 @@
 - Isolate posts in the `blog` collection, separately from wiki content with the same domain or path.
 - Preserve revisions and deactivate removed sources.
 - Reuse the publishing engine and editor distributed by `web-wiki`; do not duplicate them.
+- Render the blog index, posts and editor with the shared `jinja2-tcl` templates.
 
 ## Principles
 - The host owns its router, connection, authentication and CSRF callbacks.
@@ -25,7 +26,7 @@
 
 ## Install and use
 
-`ttrek.json` declares Tcl and `web-wiki`; persistence, routing, Markdown rendering, and the SQLite driver are inherited through `web-wiki`. The selected ttrek registry must contain a `web-wiki` recipe and its dependency recipes; the `web-wiki` recipe is not present in the current local registry.
+`ttrek.json` declares Tcl and `web-wiki`; persistence, routing, Markdown rendering, `jinja2-tcl` page templates, `tjson`, and the SQLite driver are inherited through `web-wiki`. The selected ttrek registry must contain a `web-wiki` recipe and its dependency recipes; the `web-wiki` recipe is not present in the current local registry.
 
 Requires `web-wiki 0.1.0` and its dependencies. No native code or JavaScript build is needed:
 
