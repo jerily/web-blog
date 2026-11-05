@@ -28,13 +28,15 @@
 
 `ttrek.json` declares Tcl and `web-wiki`; persistence, routing, Markdown rendering, `jinja2-tcl` page templates, `tjson`, and the SQLite driver are inherited through `web-wiki`. The private registry provides the `web-wiki` recipe; its native dependencies come from the public registry.
 
-With current checkouts of [private-ttrek-registry](https://github.com/jerily/private-ttrek-registry)
-and [ttrek-registry](https://github.com/jerily/ttrek-registry) beside this project,
-install with ordered registry support:
+With a current checkout of [private-ttrek-registry](https://github.com/jerily/private-ttrek-registry)
+beside this project, install using a ttrek build with `-add-pubreg` support:
 
 ```sh
-ttrek install -y -registry ../private-ttrek-registry -registry ../ttrek-registry
+ttrek install -y -registry ../private-ttrek-registry -add-pubreg
 ```
+
+`-add-pubreg` searches the public registry after the private recipes. It uses the
+local copy maintained by `ttrek sync` when available, otherwise the public API.
 
 Git must have access to the private package sources. Registry selection does not
 require a token; source cloning uses Git's existing credentials.
