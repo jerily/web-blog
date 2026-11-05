@@ -1,0 +1,60 @@
+package require tcltest 2
+namespace import ::tcltest::*
+package require web-blog
+
+proc setup_blog {} {
+    set ::sourceDir [makeDirectory blog-source]
+    foreach {name text} {2026-01-01-one.md {# One} 2026-02-01-two.md {# Two}} {
+        set f [open [file join $::sourceDir $name] w]; puts $f $text; close $f
+    }
+    set ::db [::tpersist::db_connect -database :memory: -autobegin 0]
+    ::web::blog::init_schema $::db
+    set ::blog [::web::blog::create -connection $::db]
+    ::web::blog::sync $::blog $::sourceDir
+    set ::router [::tpathexp::router]
+    ::web::blog::mount $::router -store $::blog
+}
+proc cleanup_blog {} {
+    $::router destroy
+    ::tpersist::db_disconnect $::db
+    removeDirectory $::sourceDir
+}
+
+test blog-1 {posts are listed newest first, independently of wiki collection} -setup setup_blog -body {
+    set wiki [::web::wiki::create -connection $db]
+    ::web::wiki::sync $wiki $sourceDir
+    set titles {}
+    foreach post [::web::blog::posts $blog] {lappend titles [dict get $post title]}
+    list $titles [dict get [::web::wiki::load $wiki /one] title] \
+        [dict get [::web::blog::load $blog /2026-01-01-one] title]
+} -cleanup cleanup_blog -result {{Two One} One One}
+
+test blog-2 {blog index, post, and assets share mount conventions} -setup setup_blog -body {
+    set body [dict get [$router dispatch {method GET path /blog}] body]
+    list [expr {[string first /2026-02-01-two $body] < [string first /2026-01-01-one $body]}] \
+        [dict get [$router dispatch {method GET path /blog/2026-01-01-one}] statusCode] \
+        [dict get [$router dispatch {method HEAD path /blog/_assets/markdown-editor.bundle.js}] body]
+} -cleanup cleanup_blog -result {1 200 {}}
+
+test blog-3 {invalid dates abort import without hiding posts} -setup setup_blog -body {
+    set f [open [file join $sourceDir 2026-02-30-bad.md] w]; puts $f {# Bad}; close $f
+    catch {::web::blog::sync $blog $sourceDir} message options
+    list [dict get $options -errorcode] [llength [::web::blog::posts $blog]]
+} -cleanup cleanup_blog -result {{WEB CONTENT 400} 2}
+
+test blog-4 {removed posts disappear; edits preserve history} -setup setup_blog -body {
+    ::web::blog::save $blog /2026-01-01-one One Revised 1
+    file delete [file join $sourceDir 2026-02-01-two.md]
+    ::web::blog::sync $blog $sourceDir
+    list [llength [::web::blog::posts $blog]] [dict get [::web::blog::load $blog /2026-01-01-one] markdown] \
+        [llength [::web::blog::history $blog /2026-01-01-one]]
+} -cleanup cleanup_blog -result {1 Revised 2}
+
+test blog-5 {headingless posts use the filename without duplicating its date} -setup setup_blog -body {
+    set f [open [file join $sourceDir 2026-03-01-Release.MD] w]
+    puts $f {A short release note.}; close $f
+    ::web::blog::sync $blog $sourceDir
+    dict get [::web::blog::load $blog /2026-03-01-release] title
+} -cleanup cleanup_blog -result Release
+
+cleanupTests
