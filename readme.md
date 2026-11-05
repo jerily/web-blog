@@ -26,7 +26,18 @@
 
 ## Install and use
 
-`ttrek.json` declares Tcl and `web-wiki`; persistence, routing, Markdown rendering, `jinja2-tcl` page templates, `tjson`, and the SQLite driver are inherited through `web-wiki`. The selected ttrek registry must contain a `web-wiki` recipe and its dependency recipes; the `web-wiki` recipe is not present in the current local registry.
+`ttrek.json` declares Tcl and `web-wiki`; persistence, routing, Markdown rendering, `jinja2-tcl` page templates, `tjson`, and the SQLite driver are inherited through `web-wiki`. The private registry provides the `web-wiki` recipe; its native dependencies come from the public registry.
+
+With current checkouts of [private-ttrek-registry](https://github.com/jerily/private-ttrek-registry)
+and [ttrek-registry](https://github.com/jerily/ttrek-registry) beside this project,
+install with ordered registry support:
+
+```sh
+ttrek install -y -registry ../private-ttrek-registry -registry ../ttrek-registry
+```
+
+Git must have access to the private package sources. Registry selection does not
+require a token; source cloning uses Git's existing credentials.
 
 Requires `web-wiki 0.1.0` and its dependencies. No native code or JavaScript build is needed:
 
