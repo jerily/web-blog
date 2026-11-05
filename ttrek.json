@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "scripts": {},
   "dependencies": {
-    "tcl": ">=8.6.0 <10.0.0",
+    "tcl": ">=8.6.0,<10.0.0",
     "web-wiki": "^0.1.0"
   },
   "devDependencies": {}
