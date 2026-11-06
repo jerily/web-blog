@@ -20,14 +20,15 @@ proc cleanup_blog {} {
     removeDirectory $::sourceDir
 }
 
-test blog-1 {posts are listed newest first, independently of wiki collection} -setup setup_blog -body {
-    set wiki [::web::wiki::create -connection $db]
-    ::web::wiki::sync $wiki $sourceDir
+test blog-1 {posts are listed newest first and domains stay independent} -setup setup_blog -body {
+    set other [::web::blog::create -connection $db -domain other.test]
+    ::web::blog::sync $other $sourceDir
+    ::web::blog::save $other /2026-01-01-one Other Changed 1
     set titles {}
     foreach post [::web::blog::posts $blog] {lappend titles [dict get $post title]}
-    list $titles [dict get [::web::wiki::load $wiki /one] title] \
+    list $titles [dict get [::web::blog::load $other /2026-01-01-one] title] \
         [dict get [::web::blog::load $blog /2026-01-01-one] title]
-} -cleanup cleanup_blog -result {{Two One} One One}
+} -cleanup cleanup_blog -result {{Two One} Other One}
 
 test blog-2 {blog index, post, and assets share mount conventions} -setup setup_blog -body {
     set body [dict get [$router dispatch {method GET path /blog}] body]
@@ -40,7 +41,7 @@ test blog-3 {invalid dates abort import without hiding posts} -setup setup_blog 
     set f [open [file join $sourceDir 2026-02-30-bad.md] w]; puts $f {# Bad}; close $f
     catch {::web::blog::sync $blog $sourceDir} message options
     list [dict get $options -errorcode] [llength [::web::blog::posts $blog]]
-} -cleanup cleanup_blog -result {{WEB CONTENT 400} 2}
+} -cleanup cleanup_blog -result {{WEB BLOG 400} 2}
 
 test blog-4 {removed posts disappear; edits preserve history} -setup setup_blog -body {
     ::web::blog::save $blog /2026-01-01-one One Revised 1
@@ -56,5 +57,53 @@ test blog-5 {headingless posts use the filename without duplicating its date} -s
     ::web::blog::sync $blog $sourceDir
     dict get [::web::blog::load $blog /2026-03-01-release] title
 } -cleanup cleanup_blog -result Release
+
+test standalone-1 {package loads independently and creates only its own tables} -body {
+    set connection [::tpersist::db_connect -database :memory: -autobegin 0]
+    try {
+        ::web::blog::initdb $connection
+        ::web::blog::initdb $connection
+        set tables {}
+        foreach row [dict get [::tpersist::db_execute $connection [::tpersist::db_select sqlite_master -columns name]] rows] {
+            if {[string match web_* [dict get $row name]]} {lappend tables [dict get $row name]}
+        }
+        list [package provide web-wiki] [namespace exists ::web::content] [lsort $tables]
+    } finally {::tpersist::db_disconnect $connection}
+} -result {{} 0 {web_blog_items web_blog_revisions}}
+
+proc blog_authorize {request context action path} {dict exists $context editor}
+proc blog_csrf {action request context token} {
+    if {$action eq "issue"} {return test-token}
+    expr {$token eq "test-token"}
+}
+proc blog_post {{csrf test-token}} {
+    $::router dispatch [dict create method POST path /custom/_edit/2026-01-01-one \
+        headers {content-type application/x-www-form-urlencoded} \
+        body "title=Edited&markdown=Updated&revision=1&csrf=$csrf"] {editor 1}
+}
+
+test editor-1 {blog owns authorization, CSRF, revision checks and custom templates} -setup setup_blog -body {
+    ::web::blog::mount $router -store $blog -prefix /custom -authorize blog_authorize -csrf blog_csrf \
+        -config {master_template {<main data-host="blog">{% block body %}{% endblock %}</main>}}
+    set statuses {}
+    lappend statuses [dict get [$router dispatch {method GET path /custom/_edit/2026-01-01-one}] statusCode]
+    foreach path {/custom /custom/2026-01-01-one /custom/_edit/2026-01-01-one} {
+        set response [$router dispatch [dict create method GET path $path] {editor 1}]
+        if {![string match {*data-host="blog"*} [dict get $response body]]} {error "missing master"}
+        lappend statuses [dict get $response statusCode]
+    }
+    lappend statuses [dict get [blog_post wrong] statusCode] \
+        [dict get [blog_post] statusCode] [dict get [blog_post] statusCode] \
+        [dict get [::web::blog::load $blog /2026-01-01-one] markdown] \
+        [llength [::web::blog::history $blog /2026-01-01-one]]
+    set statuses
+} -cleanup cleanup_blog -result {403 200 200 200 403 303 409 Updated 2}
+
+test editor-2 {blog assets are local and reject traversal} -setup setup_blog -body {
+    set response [$router dispatch {method GET path /blog/_assets/markdown-editor.bundle.js}]
+    list [dict get $response statusCode] [expr {[string length [dict get $response body]] > 1000}] \
+        [dict get [$router dispatch {method GET path /blog/%2e%2e}] statusCode] \
+        [dict get [$router dispatch {method GET path /blog/_edit/2026-01-01-one}] statusCode]
+} -cleanup cleanup_blog -result {200 1 400 404}
 
 cleanupTests
