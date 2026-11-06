@@ -53,7 +53,7 @@ Installation creates `stage/lib/web-blog0.1.0`. Put that directory (or `stage/li
 ```tcl
 package require web-blog 0.1.0
 set db [::tpersist::db_connect -database company.sqlite -autobegin 0]
-::web::blog::init_schema $db
+::web::blog::initdb $db
 set blog [::web::blog::create -connection $db -domain example.com -title Journal]
 ::web::blog::sync $blog ./content/blog
 set router [::tpathexp::router]
@@ -65,9 +65,15 @@ Use filenames such as `2026-11-05-launch.md` containing `# Launch`. The resultin
 
 The title comes from the first Markdown heading or filename stem after removing its date prefix. Renaming a heading changes the imported URL; browser title edits keep it stable. Source-baseline, revision, collision, deactivation and reactivation behavior matches `web-wiki`. A source change supersedes browser edits and retains them in history; unchanged sources preserve browser edits.
 
-Public commands are `create`, `init_schema`, `sync`, `load`, `posts`, `history`, `save` and `mount`. Signatures match their wiki equivalents; `posts store` returns active post dictionaries ordered by `published_at DESC, path ASC`. `save` requires the expected revision. The initial browser editor updates existing posts; new posts are introduced through the source directory.
+Public commands are `create`, `initdb`, `sync`, `load`, `posts`, `history`, `save` and `mount`. Signatures match their wiki equivalents; `posts store` returns active post dictionaries ordered by `published_at DESC, path ASC`. `save` requires the expected revision. The initial browser editor updates existing posts; new posts are introduced through the source directory.
 
 All mount options, authorization/CSRF callbacks and `/_assets`/`/_edit` route conventions match `web-wiki`. Lexical supplies rich editing for its supported Markdown subset and preserves tables, code and other unsupported constructs in source mode.
+
+Mount accepts `-config [dict create master_template $trustedTemplateSource]` to
+replace the shared page layout for that instance. The optional `templates` config
+key supplies additional named template sources. See the mount contract for the
+layout blocks and context. `library/initdb.tcl` supplies the public `initdb`
+entry point; hosts invoke it explicitly before importing either collection.
 
 ## Verification
 

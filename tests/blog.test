@@ -8,7 +8,7 @@ proc setup_blog {} {
         set f [open [file join $::sourceDir $name] w]; puts $f $text; close $f
     }
     set ::db [::tpersist::db_connect -database :memory: -autobegin 0]
-    ::web::blog::init_schema $::db
+    ::web::blog::initdb $::db
     set ::blog [::web::blog::create -connection $::db]
     ::web::blog::sync $::blog $::sourceDir
     set ::router [::tpathexp::router]
