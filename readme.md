@@ -66,6 +66,8 @@ Use filenames such as `2026-11-05-launch.md` containing `# Launch`. The resultin
 
 The title comes from the first Markdown heading or filename stem after removing its date prefix. Renaming a heading changes the imported URL; browser title edits keep it stable. A source change supersedes browser edits and retains them in history; unchanged sources preserve browser edits.
 
+The saved title supplies the visible post heading. Rendering omits a leading Markdown H1 to avoid a duplicate title; stored Markdown remains unchanged.
+
 Public commands are `create`, `initdb`, `sync`, `load`, `posts`, `history`, `save` and `mount`. `posts store` returns active post dictionaries ordered by `published_at DESC, path ASC`. `save` requires the expected revision. The initial browser editor updates existing posts; new posts are introduced through the source directory.
 
 Mount options, authorization/CSRF callbacks and `/_assets`/`/_edit` route conventions are documented in [MOUNTING.md](MOUNTING.md). Lexical supplies rich editing for its supported Markdown subset and preserves tables, code and other unsupported constructs in source mode.

@@ -106,4 +106,35 @@ test editor-2 {blog assets are local and reject traversal} -setup setup_blog -bo
         [dict get [$router dispatch {method GET path /blog/_edit/2026-01-01-one}] statusCode]
 } -cleanup cleanup_blog -result {200 1 400 404}
 
+test editor-3 {title-only edits update the visible heading without changing the URL or Markdown} -setup setup_blog -body {
+    ::web::blog::mount $router -store $blog -prefix /custom -authorize blog_authorize -csrf blog_csrf
+    set original [::web::blog::load $blog /2026-01-01-one]
+    set result [$router dispatch [dict create method POST path /custom/_edit/2026-01-01-one \
+        headers {content-type application/x-www-form-urlencoded} \
+        body {title=Renamed+%26+%3Ctitle%3E&markdown=%23+One%0A&revision=1&csrf=test-token}] {editor 1}]
+    set item [::web::blog::load $blog /2026-01-01-one]
+    set body [dict get [$router dispatch {method GET path /custom/2026-01-01-one}] body]
+    set index [dict get [$router dispatch {method GET path /custom}] body]
+    list [dict get $result statusCode] [dict get $result headers location] \
+        [dict get $item path] [dict get $item title] [dict get $item revision] \
+        [expr {[dict get $item markdown] eq [dict get $original markdown]}] \
+        [string match {*<h1>Renamed &amp; &lt;title&gt;</h1>*} $body] \
+        [string match {*<h1>One</h1>*} $body] \
+        [string match {*href="/custom/2026-01-01-one"*<h2>Renamed &amp; &lt;title&gt;</h2>*} $index]
+} -cleanup cleanup_blog -result {303 /custom/2026-01-01-one /2026-01-01-one {Renamed & <title>} 2 1 1 0 1}
+
+test templates-title {only a leading Markdown H1 is replaced by the saved title} -setup setup_blog -body {
+    set revision 1
+    set results {}
+    foreach markdown [list "# Old\n\n# Section\n\nBody.\n" \
+            "Old\nheading\n===\n\n# Section\n\nBody.\n" "Paragraph.\n\n# Section\n\nBody.\n"] {
+        ::web::blog::save $blog /2026-01-01-one Renamed $markdown $revision
+        incr revision
+        set body [dict get [$router dispatch {method GET path /blog/2026-01-01-one}] body]
+        lappend results [regexp -all {<h1>} $body] \
+            [string match {*<h1>Renamed</h1>*<h1>Section</h1>*<p>Body.</p>*} $body]
+    }
+    lappend results [string match {*<p>Paragraph.</p>*} $body]
+} -cleanup cleanup_blog -result {2 1 2 1 2 1 1}
+
 cleanupTests
