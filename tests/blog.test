@@ -137,4 +137,84 @@ test templates-title {only a leading Markdown H1 is replaced by the saved title}
     lappend results [string match {*<p>Paragraph.</p>*} $body]
 } -cleanup cleanup_blog -result {2 1 2 1 2 1 1}
 
+
+proc mount_creation_blog {{enabled true}} {
+    ::web::blog::mount $::router -store $::blog -prefix /custom \
+        -authorize ::blog_authorize -csrf ::blog_csrf -config [dict create allow_create $enabled]
+}
+proc post_creation_blog {{body {title=New+Page&markdown=%23+New+Page%0D%0A%0D%0ABrowser&csrf=test-token&published_at=2026-11-06}}} {
+    $::router dispatch [dict create method POST path /custom/_new \
+        headers {content-type application/x-www-form-urlencoded} body $body] {editor 1}
+}
+
+test creation-1 {new items require the feature flag and editor callbacks} -setup setup_blog -body {
+    ::web::blog::mount $router -store $blog -prefix /readonly -config {allow_create true}
+    mount_creation_blog false
+    set statuses {}
+    foreach prefix {/readonly /custom} {
+        foreach method {GET POST} {
+            lappend statuses [dict get [$router dispatch [dict create method $method path $prefix/_new] {editor 1}] statusCode]
+        }
+        lappend statuses [string match {*href="*/_new"*} [dict get [$router dispatch [dict create method GET path $prefix]] body]]
+    }
+    set statuses
+} -cleanup cleanup_blog -result {404 404 0 404 404 0}
+
+test creation-2 {authorized forms publish revision one, redirect and reject duplicates} -setup setup_blog -body {
+    mount_creation_blog
+    set denied [$router dispatch {method GET path /custom/_new}]
+    set form [$router dispatch {method GET path /custom/_new} {editor 1}]
+    set result [post_creation_blog]
+    set item [::web::blog::load $blog /2026-11-06-new-page]
+    list [dict get $denied statusCode] [dict get $form statusCode] \
+        [string match {*markdown-editor.bundle.js*} [dict get $form body]] \
+        [string match {*name="revision"*} [dict get $form body]] \
+        [dict get $result statusCode] [dict get $result headers location] \
+        [dict get $item revision] [dict get $item source_path] \
+        [dict get $item markdown] [llength [::web::blog::history $blog /2026-11-06-new-page]] \
+        [dict get [post_creation_blog] statusCode]
+} -cleanup cleanup_blog -result [list 403 200 1 0 303 /custom/2026-11-06-new-page 1 {} "# New Page\n\nBrowser" 1 409]
+
+test creation-3 {authorization, CSRF, malformed forms and metadata validation reject writes} -setup setup_blog -body {
+    mount_creation_blog
+    set result [list [dict get [$router dispatch {method POST path /custom/_new}] statusCode]]
+    foreach body {
+        {title=Denied&markdown=x&csrf=wrong&published_at=2026-11-06}
+        {title=&markdown=x&csrf=test-token&published_at=2026-11-06}
+        {title=x&title=y&markdown=x&csrf=test-token&published_at=2026-11-06}
+        {title=x&csrf=test-token&published_at=2026-11-06}
+        {title=%00&markdown=x&csrf=test-token&published_at=2026-11-06}
+    } {lappend result [dict get [post_creation_blog $body] statusCode]}
+    lappend result [llength [::web::blog::history $blog /2026-11-06-new-page]]
+    set result
+} -cleanup cleanup_blog -result {403 403 400 400 400 400 0}
+
+test creation-4 {browser pages survive sync and remain isolated by domain} -setup setup_blog -body {
+    ::web::blog::add $blog / {New Page} Browser 2026-11-06
+    ::web::blog::sync $blog $sourceDir
+    set other [::web::blog::create -connection $db -domain other.test]
+    catch {::web::blog::load $other /2026-11-06-new-page} message options
+    list [dict get [::web::blog::load $blog /2026-11-06-new-page] markdown] \
+        [dict get $options -errorcode] [llength [::web::blog::history $blog /2026-11-06-new-page]]
+} -cleanup cleanup_blog -result {Browser {WEB BLOG 404} 1}
+
+test creation-5 {source collisions with browser content fail without replacing revisions} -setup setup_blog -body {
+    ::web::blog::add $blog / {New Page} Browser 2026-11-06
+    set channel [open [file join $sourceDir 2026-11-06-new.md] w]
+    puts $channel {# New Page}; close $channel
+    catch {::web::blog::sync $blog $sourceDir} message options
+    list [dict get $options -errorcode] [dict get [::web::blog::load $blog /2026-11-06-new-page] markdown]
+} -cleanup cleanup_blog -result {{WEB BLOG 409} Browser}
+
+test creation-6 {post dates are validated and new posts participate in chronological ordering} -setup setup_blog -body {
+    mount_creation_blog
+    set statuses {}
+    foreach date {2026-02-30 2026-13-01 26-01-01 {}} {
+        lappend statuses [dict get [post_creation_blog "title=New&markdown=x&csrf=test-token&published_at=$date"] statusCode]
+    }
+    post_creation_blog
+    set newest [lindex [::web::blog::posts $blog] 0]
+    list $statuses [dict get $newest path] [dict get $newest published_at]
+} -cleanup cleanup_blog -result {{400 400 400 400} /2026-11-06-new-page 2026-11-06}
+
 cleanupTests
