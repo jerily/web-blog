@@ -68,7 +68,7 @@ The title comes from the first Markdown heading or filename stem after removing 
 
 The saved title supplies the visible post heading. Rendering omits a leading Markdown H1 to avoid a duplicate title; stored Markdown remains unchanged.
 
-Public commands are `create`, `initdb`, `sync`, `load`, `posts`, `history`, `save` and `mount`. `posts store` returns active post dictionaries ordered by `published_at DESC, path ASC`. `save` requires the expected revision. The initial browser editor updates existing posts; new posts are introduced through the source directory.
+Public commands are `create`, `initdb`, `sync`, `load`, `posts`, `history`, `add`, `save` and `mount`. `posts store` returns active post dictionaries ordered by `published_at DESC, path ASC`. `save` requires the expected revision. `add store /parent title markdown YYYY-MM-DD` creates a post at a date-and-title-derived URL with revision 1. The date must be a real calendar date; it orders posts without scheduling publication.
 
 Mount options, authorization/CSRF callbacks and `/_assets`/`/_edit` route conventions are documented in [MOUNTING.md](MOUNTING.md). Lexical supplies rich editing for its supported Markdown subset and preserves tables, code and other unsupported constructs in source mode.
 
@@ -77,6 +77,21 @@ replace the package page layout for that instance. The optional `templates` conf
 key supplies additional named template sources. See the mount contract for the
 layout blocks and context. `library/initdb.tcl` supplies the public `initdb`
 entry point; hosts invoke it explicitly before importing blog content.
+
+## Browser creation
+
+Enable browser creation with `-config {allow_create true}` on the mount, alongside
+both editor callbacks. The flag defaults to `false` and must be a boolean. It does
+not enable editing by itself. The index and item pages show **New post** in edit
+mode; the form uses the existing local Markdown editor. Creation is authorized,
+CSRF checked and stored atomically with revision 1. Existing URLs, including
+inactive items, return 409 instead of being overwritten.
+
+Browser-created items have an empty `source_path` and are stored only in SQLite.
+Sync preserves these items and their parent folders, even when a source folder
+is removed. A source file colliding with a browser-created URL aborts sync with
+409; it cannot silently replace that item. Source-backed items retain their
+existing import/update/deactivation behavior.
 
 ## Schema and editor ownership
 
@@ -99,7 +114,7 @@ Run `tclsh9.1 tests/all.tcl` with dependency packages discoverable. Tests cover 
 Public blog index, folder and post views, local editor assets, and optional editing routes.
 
 ### Protections
-The blog implementation binds SQL values, scopes every query, escapes metadata, uses safe cmark rendering, rejects invalid paths, checks authorization and CSRF, and prevents stale browser updates. Editing is disabled by default.
+The blog implementation binds SQL values, scopes every query, escapes metadata, uses safe cmark rendering, rejects invalid paths, checks authorization and CSRF, and prevents stale browser updates. Editing is disabled by default; creation additionally requires `allow_create true`.
 
 ### Pending
 The host owns production authentication, TLS, transport limits and rate limiting. RSS, tags, author profiles, drafts, scheduling and pagination are outside this initial package.
