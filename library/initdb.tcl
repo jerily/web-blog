@@ -1,2 +1,27 @@
-# Explicit schema setup on a caller-owned connection; safe to repeat.
-proc ::web::blog::initdb {connection} {::web::content::initdb $connection}
+# Explicit maintenance operation. Mounting and handling requests never create schema.
+proc ::web::blog::initdb {connection} {
+    set identity {
+        domain {type varchar length 253 not_null 1}
+        path {type varchar length 1024 not_null 1}
+    }
+    set items [db_define_table web_blog_items [dict merge $identity {
+        parent_path {type text not_null 1}
+        item_type {type varchar length 16 not_null 1}
+        title {type text not_null 1}
+        markdown {type text not_null 1}
+        source_path {type text not_null 1}
+        source_markdown {type text not_null 1}
+        published_at {type varchar length 10 not_null 1}
+        revision {type integer not_null 1}
+        active {type boolean not_null 1}
+        updated_at {type varchar length 32 not_null 1}
+    }] -primary_key {domain path}]
+    set revisions [db_define_table web_blog_revisions [dict merge $identity {
+        revision {type integer not_null 1}
+        title {type text not_null 1}
+        markdown {type text not_null 1}
+        created_at {type varchar length 32 not_null 1}
+    }] -primary_key {domain path revision}]
+    db_create_table $connection $items -if_not_exists 1
+    db_create_table $connection $revisions -if_not_exists 1
+}
