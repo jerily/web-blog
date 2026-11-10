@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(web-blog VERSION 0.1.1 LANGUAGES NONE)
+project(web-blog VERSION 0.1.2 LANGUAGES NONE)
 set(PACKAGE_DIR "lib/web-blog${PROJECT_VERSION}")
 install(FILES pkgIndex.tcl readme.md LICENSE MOUNTING.md DESTINATION "${PACKAGE_DIR}")
 install(DIRECTORY library assets frontend DESTINATION "${PACKAGE_DIR}")
