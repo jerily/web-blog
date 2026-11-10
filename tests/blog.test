@@ -217,4 +217,29 @@ test creation-6 {post dates are validated and new posts participate in chronolog
     list $statuses [dict get $newest path] [dict get $newest published_at]
 } -cleanup cleanup_blog -result {{400 400 400 400} /2026-11-06-new-page 2026-11-06}
 
+
+proc host_properties {request context} {
+    dict create show_edit_controls [list BOOL [dict exists $context member]] \
+        host_label [list S [dict get $request path]]
+}
+test host-context-1 {per-request host properties, default compatibility and mount isolation} -setup setup_blog -body {
+    ::web::blog::mount $router -store $blog -prefix /dynamic \
+        -authorize blog_authorize -csrf blog_csrf -context host_properties \
+        -config {allow_create true master_template {<header>{{ host_label }}</header>{% block body %}{% endblock %}}}
+    ::web::blog::mount $router -store $blog -prefix /plain \
+        -authorize blog_authorize -csrf blog_csrf -config {allow_create true}
+    set result {}
+    foreach context {{} {member yes} {}} {
+        set body [dict get [$router dispatch {method GET path /dynamic/2026-01-01-one} $context] body]
+        lappend result [expr {[string first {/dynamic/_edit} $body] >= 0}] \
+            [expr {[string first {/dynamic/_new} $body] >= 0}] \
+            [expr {[string first {<header>/dynamic/2026-01-01-one</header>} $body] >= 0}]
+    }
+    set body [dict get [$router dispatch {method GET path /plain/2026-01-01-one}] body]
+    lappend result [expr {[string first {/plain/_edit} $body] >= 0}] \
+        [expr {[string first {/plain/_new} $body] >= 0}] \
+        [dict get [$router dispatch {method GET path /dynamic/_edit/2026-01-01-one}] statusCode]
+    set result
+} -cleanup cleanup_blog -result {0 0 1 1 1 1 0 0 1 1 1 403}
+
 cleanupTests
