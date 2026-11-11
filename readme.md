@@ -111,3 +111,12 @@ The blog implementation binds SQL values, scopes every query, escapes metadata, 
 
 ### Pending
 The host owns production authentication, TLS, transport limits and rate limiting. RSS, tags, author profiles, drafts, scheduling and pagination are outside this initial package.
+
+## Database indexes
+
+Post reads and revision history use their composite primary keys. Folder reads use `web_blog_children (domain, parent_path, active)`. The dated post list uses `(domain, active, item_type, published_at DESC, path)` through tpersist 0.1.3.
+
+All database operations use `tpersist`. Rerun the explicit `initdb` maintenance
+operation to add these indexes to existing databases. Index creation is
+idempotent and never runs in request handlers. The example-community integration
+suite verifies the access paths with SQLite and PostgreSQL EXPLAIN plans.
