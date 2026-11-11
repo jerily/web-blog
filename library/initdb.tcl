@@ -24,4 +24,8 @@ proc ::web::blog::initdb {connection} {
     }] -primary_key {domain path revision}]
     db_create_table $connection $items -if_not_exists 1
     db_create_table $connection $revisions -if_not_exists 1
+    db_create_index $connection web_blog_children web_blog_items {domain parent_path active} -if_not_exists 1
+    # Publication dates descend while equal-date paths retain ascending order.
+    db_create_index $connection web_blog_posts web_blog_items {domain active item_type published_at path} \
+        -descending published_at -if_not_exists 1
 }

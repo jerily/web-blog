@@ -1,5 +1,5 @@
 package require Tcl 8.6 9
-package require tpersist 0.1.0
+package require tpersist 0.1.3
 package require cmark_gfm 0.1.0
 package require tpathexp 1.1.0
 package require jinja2 0.1.0
@@ -14,4 +14,4 @@ source [file join $::web::blog::root library initdb.tcl]
 source [file join $::web::blog::root library templates.tcl]
 source [file join $::web::blog::root library http.tcl]
 source [file join $::web::blog::root library mount.tcl]
-package provide web-blog 0.1.2
+package provide web-blog 0.1.3
