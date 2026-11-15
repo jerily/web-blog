@@ -19,4 +19,4 @@ source [file join $::web::blog::root library initdb.tcl]
 source [file join $::web::blog::root library templates.tcl]
 source [file join $::web::blog::root library http.tcl]
 source [file join $::web::blog::root library mount.tcl]
-package provide web-blog 0.1.4
+package provide web-blog 0.1.5

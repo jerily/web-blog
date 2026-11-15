@@ -111,7 +111,7 @@ proc ::web::blog::view {config path} {
         if {[dict get $config -authorize] ne {}} {
             set editUrl [dict get $config -prefix]/_edit$path
         }
-        set markdownHtml [::cmark_gfm::render_gfm_html [dict get $item markdown]]
+        set markdownHtml [render_markdown $config [dict get $item markdown]]
         # The template renders the saved title; omit the Markdown's leading title.
         regsub {^<h1>.*?</h1>\n} $markdownHtml {} markdownHtml
         set fields [text_fields [dict create title $title \
@@ -139,6 +139,7 @@ proc ::web::blog::new {config request context parent} {
     if {[dict get $request method] eq "POST"} {
         set fields [form $request {title markdown csrf published_at}]
         if {![{*}$csrf verify $request $context [dict get $fields csrf]]} {fail 403 "invalid CSRF token"}
+        render_markdown $config [dict get $fields markdown]
         set item [add $store $parent [dict get $fields title] [dict get $fields markdown] [dict get $fields published_at]]
         set result [response 303 {}]
         dict set result headers location [url $config [dict get $item path]]
@@ -164,6 +165,7 @@ proc ::web::blog::edit {config request context path} {
     if {$action eq "save"} {
         set fields [form $request]
         if {![{*}$csrf verify $request $context [dict get $fields csrf]]} {fail 403 "invalid CSRF token"}
+        render_markdown $config [dict get $fields markdown]
         save $store $path [dict get $fields title] [dict get $fields markdown] [dict get $fields revision]
         set result [response 303 {}]
         dict set result headers location [url $config $path]
@@ -201,7 +203,16 @@ proc ::web::blog::dispatch {config action request context params} {
             new {return [new $config $request $context [request_path $params]]}
             edit {return [edit $config $request $context [request_path $params]]}
         }
+    } trap {WEB CONTENT} {message options} {
+        return [response [lindex [dict get $options -errorcode] 2] "$message\n" {text/plain; charset=utf-8}]
     } trap {WEB BLOG} {message options} {
         return [response [lindex [dict get $options -errorcode] 2] "$message\n" {text/plain; charset=utf-8}]
     }
+}
+
+# Hosts can share an image-aware safe Markdown renderer across packages.
+proc ::web::blog::render_markdown {config markdown} {
+    set command [dict get $config -render-markdown]
+    if {$command ne {}} {return [{*}$command $markdown]}
+    return [::cmark_gfm::render_gfm_html $markdown]
 }
