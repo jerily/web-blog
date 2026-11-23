@@ -1,5 +1,5 @@
-package require tcltest 2
-package require web-blog 1.0.0
+package require tcltest
+package require web-blog
 namespace import ::tcltest::*
 namespace eval ::rendertest {}
 proc ::rendertest::setup {} {
