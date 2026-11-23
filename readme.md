@@ -32,7 +32,7 @@
 Install from the public ttrek registry:
 
 ```sh
-ttrek install -y web-blog@0.1.0
+ttrek install -y web-blog@1.0.0
 ```
 
 Requires the native dependencies listed above, matching the Tcl interpreter ABI. No native code or JavaScript build is needed:
@@ -42,10 +42,10 @@ cmake -S . -B build -DTCLSH=tclsh9.1
 cmake --install build --prefix "$PWD/stage"
 ```
 
-Installation creates `stage/lib/web-blog0.1.0`. Put that directory (or `stage/lib`) and dependency packages on the Tcl search path.
+Installation creates `stage/lib/web-blog1.0.0`. Put that directory (or `stage/lib`) and dependency packages on the Tcl search path.
 
 ```tcl
-package require web-blog 0.1.0
+package require web-blog 1.0.0
 set db [::tpersist::db_connect -database company.sqlite -autobegin 0]
 ::web::blog::initdb $db
 set blog [::web::blog::create -connection $db -domain example.com -title Journal]
