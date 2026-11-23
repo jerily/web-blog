@@ -6,7 +6,7 @@ The implementations, persistence, rendering, templates and assets belong to
 web-blog. No other web application package or commons content package is required.
 
 ```tcl
-package require web-blog 1.0.0
+package require web-blog
 ::web::blog::initdb $connection
 set store [::web::blog::create -connection $connection -domain example.test]
 ::web::blog::mount $router -store $store -prefix /blog

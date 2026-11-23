@@ -45,7 +45,7 @@ cmake --install build --prefix "$PWD/stage"
 Installation creates `stage/lib/web-blog1.0.0`. Put that directory (or `stage/lib`) and dependency packages on the Tcl search path.
 
 ```tcl
-package require web-blog 1.0.0
+package require web-blog
 set db [::tpersist::db_connect -database company.sqlite -autobegin 0]
 ::web::blog::initdb $db
 set blog [::web::blog::create -connection $db -domain example.com -title Journal]
